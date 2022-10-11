@@ -53,7 +53,7 @@ app.post('/spend', (req, res) => {
                         spendObject.points *= -1;
                         pointsLeft -= sortedTransactionArray[t].points;
                     } else {
-                        spendObject.points = sortedTransactionArray[t].points-pointsLeft;
+                        spendObject.points = pointsLeft*-1;
                         pointsLeft = 0;
                     } 
 
