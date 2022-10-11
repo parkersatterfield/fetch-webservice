@@ -16,7 +16,7 @@ npm i
 npm run start
 ```
 
-This web service is also hosted at TODO [https://](https://www.heroku.com) should you wish to use the service in a live environment. 
+This web service is also hosted at TODO [https://fetchrewardswebservice.herokuapp.com/](https://fetchrewardswebservice.herokuapp.com/) should you wish to use the service in a live environment. 
 ### Endpoints
 - /Add - POST request, allows user to add transactions
 - /Spend - POST request, allows user to spend rewards
