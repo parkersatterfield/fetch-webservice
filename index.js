@@ -29,12 +29,11 @@ function getBalance() {
     return accountSummary;
 }
 
-// Add transactions for a specific payer and date
 app.post('/add', (req, res) => {
     try {
         if (req.body.payer && req.body.points) {
             if ((typeof(req.body.payer) === 'string' && typeof(req.body.points) === 'number' && typeof(req.body.timestamp) === 'string')) {
-                const t = new Transaction(req.body.payer, req.body.points, Date.parse(req.body.timestamp), false);
+                const t = new Transaction(req.body.payer, req.body.points, Date.parse(req.body.timestamp), req.body.points);
     
                 // add transaction to transaction array
                 transactionArray.push(t);
@@ -51,76 +50,68 @@ app.post('/add', (req, res) => {
     }
 });
 
-// Spend points using the rules above and return a list of { "payer": <string>, "points": <integer> } for each call
 app.post('/spend', (req, res) => {
-    if (req.body.points) {
-        if ((typeof(req.body.points)) === 'number') {
-            // combine current transaction array by payer
-            let pointsLeft = req.body.points;
-            const spendArray = [];
-            const payerArray = [];
-            
-            // sort transaction array by date
-            const sortedTransactionArray = transactionArray.sort((a,b) => {
-                return a.timestamp-b.timestamp;
-            });
-            
-            // calculate available points in account
-            let balance = getBalance();
-            let pointsAvailable = 0;
-            for (let p of balance) {
-                pointsAvailable += p.points;
-            }
-            
-            // loop through transactions, clone to new object, update points, push spend object to spend array, return spend array
-            for (const t in sortedTransactionArray) {
-                let found = false;
-                const spendObject = {
-                    payer: sortedTransactionArray[t].payer,
-                    points: sortedTransactionArray[t].points,
-                };
-
-                let payer = sortedTransactionArray[t].payer;
-                if (payerArray.includes(payer)) {
-                    found = true;
-                } else {
-                    payerArray.push(payer)
-                }
-
-                if (pointsLeft > 0) {
-                    if (pointsAvailable > pointsLeft) {
-                        if (pointsLeft >= sortedTransactionArray[t].points) {
-                            spendObject.points *= -1;
-                            pointsLeft -= sortedTransactionArray[t].points;
-                            pointsAvailable -= sortedTransactionArray[t].points;
+    try {
+        if (req.body.points) {
+            if ((typeof(req.body.points)) === 'number') {
+                const spendArray = [];
+                const payerArray = [];
+                let pointsToSpend = req.body.points;
+                
+                // filter array for transactions with points available
+                const filteredTransactionArray = transactionArray.filter(a => a.pointsAvailable !== 0 && a.pointsAvailable !== undefined);
+                
+                // sort transaction array by date
+                const sortedTransactionArray = filteredTransactionArray.sort((a,b) => {
+                    return a.timestamp-b.timestamp;
+                });
+                
+                sortedTransactionArray.forEach(t => {
+                    let found = false;
+                    if (payerArray.includes(t.payer)) {
+                        found = true;
+                    } else {
+                        payerArray.push(t.payer)
+                    }
+    
+                    if (pointsToSpend > 0) {
+                        let pointsSpent;
+                        if (pointsToSpend >= t.pointsAvailable) {
+                            pointsToSpend -= t.pointsAvailable;
+                            pointsSpent = t.pointsAvailable;
+                            // mutate the original transaction object t
+                            t.pointsAvailable = 0;
                         } else {
-                            spendObject.points = pointsLeft*-1;
-                            pointsLeft = 0;
+                            // mutate the original transaction object t
+                            t.pointsAvailable -= pointsToSpend;
+                            pointsSpent = pointsToSpend;
+                            pointsToSpend = 0;
                         } 
-                    } else {
-                        spendObject.points = pointsAvailable*-1;
-                        pointsLeft = 0;
+    
+                        // create new object with negative points so balance is updated
+                        const spendTransaction = new Transaction(t.payer, (pointsSpent*-1));
+                        // spendArray.push(spendTransaction);
+                        
+                        if (!found) {
+                            spendArray.push(spendTransaction);
+                            transactionArray.push(spendTransaction);
+                        } else {
+                            let index = spendArray.findIndex(x => x.payer === t.payer);
+                            spendArray[index].points += spendTransaction.points;
+                        }
                     }
-
-                    // create new object with negative points so balance is updated
-                    const spendTransaction = new Transaction(spendObject.payer, spendObject.points, null);
-                    transactionArray.push(spendTransaction);
-
-                    if (!found) {
-                        spendArray.push(spendObject);
-                    } else {
-                        let index = spendArray.findIndex(x => x.payer === payer);
-                        spendArray[index].points += spendObject.points;
-                    }
-                }
+                });
+    
+                // format return object
+                return res.status(200).send(spendArray);
+            } else {
+                return res.status(200).send('Points must be a number value');
             }
-
-            return res.status(200).send(spendArray);
         } else {
-            return res.status(400).send('Points must be a number value');
+            res.status(200).json('Request body must contain points data');
         }
-    } else {
-        res.status(400).json('Request body must contain points data');
+    } catch (err) {
+        return res.status(404).send(err);
     }
 });
 
@@ -139,6 +130,7 @@ app.get('/balance', (req, res) => {
         return res.status(404).send(err);
     }
 });
+
 
 // Initialize the app and create a port
 const PORT = process.env.PORT || 3001;
