@@ -90,7 +90,6 @@ app.post('/spend', (req, res) => {
     
                         // create new object with negative points so balance is updated
                         const spendTransaction = new Transaction(t.payer, (pointsSpent*-1));
-                        // spendArray.push(spendTransaction);
                         
                         if (!found) {
                             spendArray.push(spendTransaction);
@@ -102,7 +101,6 @@ app.post('/spend', (req, res) => {
                     }
                 });
     
-                // format return object
                 return res.status(200).send(spendArray);
             } else {
                 return res.status(200).send('Points must be a number value');
